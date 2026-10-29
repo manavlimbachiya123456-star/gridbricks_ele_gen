@@ -6,10 +6,20 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
 
-app = FastAPI(
+api = FastAPI(
     title="UK Wind Generation Forecast Accuracy API",
     version="1.0.0",
 )
+
+@api.get("/")
+def home():
+    return {"message": "GridBricks API is running"}
+
+@api.get("/health")
+def health():
+    return {"status": "healthy"}
+
+api.include_router(router)
 
 cors_origins = [
     origin.strip()
@@ -20,20 +30,11 @@ cors_origins = [
     if origin.strip()
 ]
 
-app.add_middleware(
-    CORSMiddleware,
+# Wrap the entire FastAPI application with CORS middleware
+app = CORSMiddleware(
+    app=api,
     allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.get("/")
-def home():
-    return {"message": "GridBricks API is running"}
-
-@app.get("/health")
-def health():
-    return {"status": "healthy"}
-
-app.include_router(router)
