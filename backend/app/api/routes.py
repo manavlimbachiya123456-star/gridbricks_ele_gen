@@ -1,4 +1,7 @@
 from __future__ import annotations
+import logging
+
+
 
 from datetime import datetime, time, timezone
 import calendar
@@ -10,6 +13,8 @@ from app.schemas import AnalysisResponse, HealthResponse, HistoryResponse
 from app.services.elexon_client import ElexonClient
 from app.services.forecast_service import match_forecast_actuals, normalize_timestamp, select_latest_forecasts
 from app.services.metrics import calculate_metrics
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
 client = ElexonClient()
@@ -24,22 +29,42 @@ def month_bounds(month: str) -> tuple[datetime, datetime]:
     return parsed, parsed.replace(day=last, hour=23, minute=59, second=59)
 
 
+
 async def build_analysis(month: str, cutoff: time = time(12, 0)) -> dict:
     start, end = month_bounds(month)
+
     try:
         actuals, forecasts = await __import__("asyncio").gather(
-            client.fetch_actuals(start, end), client.fetch_forecasts(start, end)
+            client.fetch_actuals(start, end),
+            client.fetch_forecasts(start, end),
         )
+
         rows = match_forecast_actuals(forecasts, actuals, cutoff)
         metrics = calculate_metrics(rows)
+
         return {
-            "month": month, "decision_cutoff_utc": cutoff.strftime("%H:%M"),
-            "source": "Elexon Insights API FUELHH/WINDFOR", "retrieval_status": "live",
-            "limitation": "WINDFOR stream history is filtered by publication time; rows without an eligible version are excluded from matched metrics.",
-            "metrics": metrics, "rows": json.loads(rows.to_json(orient="records", date_format="iso")) if not rows.empty else [],
+            "month": month,
+            "decision_cutoff_utc": cutoff.strftime("%H:%M"),
+            "source": "Elexon Insights API FUELHH/WINDFOR",
+            "retrieval_status": "live",
+            "limitation": (
+                "WINDFOR stream history is filtered by publication time; "
+                "rows without an eligible version are excluded from matched metrics."
+            ),
+            "metrics": metrics,
+            "rows": (
+                json.loads(rows.to_json(orient="records", date_format="iso"))
+                if not rows.empty else []
+            ),
         }
+
     except Exception as exc:
-        raise HTTPException(502, f"Elexon API retrieval failed: {exc}") from exc
+        logger.exception("Forecast analysis failed for month=%s", month)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Elexon API retrieval failed: {type(exc).__name__}: {exc}",
+        ) from exc
+
 
 
 @router.get("/health", response_model=HealthResponse)
