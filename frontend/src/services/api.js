@@ -2,7 +2,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://gridbricks-ele-gen.onrender.com',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
 })
 
 export const getAnalysis = (month = '2026-01', cutoff = '12:00') =>

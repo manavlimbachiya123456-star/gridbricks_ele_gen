@@ -5,9 +5,9 @@ services:
     environment:
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:4173}
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     ports: ["4173:80"]
-    environment:
-      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
     depends_on: [backend]
-
